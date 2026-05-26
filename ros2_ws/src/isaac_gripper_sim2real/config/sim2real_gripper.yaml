@@ -1,0 +1,41 @@
+# Isaac gripper sim2real — minimize controller flange_serial load (arm+gripper simultaneous)
+isaac_gripper_bridge:
+  ros__parameters:
+    input_topic: /isaac/joint_states
+    master_joint_name: rh_r1
+    open_rad: 0.0
+    closed_rad: 1.101
+    stroke_max: 700
+    output_mode: rh_p12_direct
+    direct_cmd_topic: /gripper/cmd_direct
+    pulse_open: 0
+    pulse_closed: 700
+    goal_current: 300
+    enable_command: true
+    max_publish_hz: 15.0
+    command_stream_hz: 6.0
+    command_burst_delta: 50
+    command_settle_pulse: 2
+
+gripper_node:
+  ros__parameters:
+    robot_ns: dsr01
+    command_transport: tcp
+    tcp_external_server: false
+    robot_port: 9105
+    tcp_protocol: json
+    gripper_command_action_enabled: false
+    direct_cmd_topic_enabled: true
+    direct_cmd_topic: /gripper/cmd_direct
+    direct_cmd_latest_only: true
+    direct_cmd_streaming: true
+    direct_cmd_streaming_no_ack: true
+    direct_cmd_streaming_ack_timeout_sec: 0.5
+    goal_position_write_mode: fc16
+    # sim2real: no Modbus read loop on controller (biggest arm jitter fix)
+    tcp_state_stream_enabled: false
+    tcp_state_hz: 0.0
+    tcp_cmd_frame_wait_sec: 0.005
+    state_hz: 1.0
+    drl_snap_enabled: false
+    plc_feedback_enabled: false

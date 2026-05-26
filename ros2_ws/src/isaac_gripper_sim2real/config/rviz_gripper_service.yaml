@@ -1,0 +1,16 @@
+# gripper_service for RViz feedback (read real pulse, publish /gripper/state)
+# NOTE: rclpy node name is "gripper_node" (see gripper_node.py)
+gripper_node:
+  ros__parameters:
+    robot_ns: dsr01
+    command_transport: tcp
+    tcp_external_server: false
+    robot_port: 9105
+    tcp_protocol: json
+    gripper_command_action_enabled: false
+    direct_cmd_topic_enabled: false
+    tcp_state_stream_enabled: true
+    tcp_state_hz: 10.0
+    state_hz: 10.0
+    drl_snap_enabled: false
+    plc_feedback_enabled: false

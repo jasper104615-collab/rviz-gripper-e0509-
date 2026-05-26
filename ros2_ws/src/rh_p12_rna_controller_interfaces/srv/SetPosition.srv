@@ -1,0 +1,9 @@
+int32 position         # target pulse
+int32 current          # target current (mA-ish)
+float32 timeout_sec
+---
+bool success
+string message
+int32 final_position
+int32 final_current
+

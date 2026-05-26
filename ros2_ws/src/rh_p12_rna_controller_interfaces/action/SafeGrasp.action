@@ -1,0 +1,18 @@
+# Close once to target_position and judge grasp by current feedback.
+
+int32 target_position
+int32 goal_current
+int32 current_threshold      # abs(current) >= threshold => grasped
+float32 timeout_sec
+---
+bool success
+bool grasped
+int32 final_position
+int32 final_current
+string message
+---
+string phase
+int32 current_position
+int32 current
+float32 progress
+
