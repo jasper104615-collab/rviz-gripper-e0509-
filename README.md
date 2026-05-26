@@ -1,95 +1,89 @@
 # rviz-gripper-e0509
 
-E0509 실로봇 **그리퍼만** RViz에 띄우고, **실제 pulse 피드백**을 joint angle로 보여줍니다.
+**실로봇 팔 + 그리퍼**를 RViz에 띄우고, **real → RViz** 로 joint 값을 연동합니다.
+
+- 팔: `/dsr01/joint_states` (실로봇 rad)
+- 그리퍼: `/gripper/state` (pulse) → rad 변환
+- URDF: `e0509_with_gripper.urdf` (팔 6축 + RH-P12)
 
 Repo: [jasper104615-collab/rviz-gripper-e0509-](https://github.com/jasper104615-collab/rviz-gripper-e0509-)
 
 ---
 
-## 필요한 공식 repo (다른 PC에서 clone)
+## 사전 준비 (공식 GitHub clone)
 
 | Repo | 용도 |
 |------|------|
-| [doosan-robot2](https://github.com/DoosanRobotics/doosan-robot2) | `dsr_description2` mesh, **DRL 서비스** (bringup) |
-| `rh_p12_rna_controller` | `gripper_service_node` (공식 RH-P12) |
+| [doosan-robot2](https://github.com/DoosanRobotics/doosan-robot2) | bringup, mesh, controller |
+| `rh_p12_rna_controller` | 그리퍼 TCP / `/gripper/state` |
 
 ---
 
-## 이 repo에 있는 것
+## 이 repo 구조
 
 ```
 rviz-gripper-e0509/
 ├── README.md
-├── scripts/install_overlay.sh      # gripper_node.py 패치
-├── overlay/rh_p12/.../gripper_node.py
+├── scripts/install_overlay.sh
+├── overlay/
+│   ├── doosan/.../e0509_with_gripper.urdf   # 팔+그리퍼, Z-90° 장착
+│   └── rh_p12/.../gripper_node.py
 └── ros2_ws/src/
-    ├── rviz_gripper_e0509/         ← RViz 그리퍼 전용 패키지
+    ├── isaac_gripper_sim2real/    ← RViz real-to-sim 연동 패키지
     └── rh_p12_rna_controller_interfaces/
 ```
 
-**없는 것:** 팔 URDF, Isaac sim2real, arm joint_states 병합
-
 ---
 
-## 설치 (1회)
+## 설치
 
 ```bash
 git clone https://github.com/jasper104615-collab/rviz-gripper-e0509-.git
 cd rviz-gripper-e0509-
 
-# RH-P12 gripper_node overlay
 chmod +x scripts/install_overlay.sh
-RH12_SRC=~/rh_p12_rna_controller ./scripts/install_overlay.sh
+DOOSAN_SRC=~/doosan-robot2/src/doosan-robot2 \
+RH12_SRC=~/rh_p12_rna_controller \
+  ./scripts/install_overlay.sh
 
-# ROS ws
 mkdir -p ~/gripper_rviz_ws/src
 cp -r ros2_ws/src/* ~/gripper_rviz_ws/src/
-ln -s ~/rh_p12_rna_controller ~/gripper_rviz_ws/src/   # 또는 copy
+ln -sf ~/rh_p12_rna_controller ~/gripper_rviz_ws/src/
 
 source /opt/ros/humble/setup.bash
 source ~/doosan-robot2/install/setup.bash
 
+cd ~/doosan-robot2 && colcon build --packages-select dsr_description2
 cd ~/gripper_rviz_ws
-colcon build --packages-select rh_p12_rna_controller_interfaces rh_p12_rna_controller rviz_gripper_e0509
-colcon build --packages-select dsr_description2   # mesh (doosan ws)
+colcon build --packages-select \
+  rh_p12_rna_controller_interfaces rh_p12_rna_controller isaac_gripper_sim2real
+
+source ~/doosan-robot2/install/setup.bash
 source ~/gripper_rviz_ws/install/setup.bash
 ```
 
 ---
 
-## 실행
-
-### T1 — Doosan bringup (DRL/TCP용, RViz 없어도 됨)
-
-`gripper_service`가 `/dsr01/drl/drl_start` 를 씁니다.
+## 실행 (한 launch)
 
 ```bash
-source ~/doosan-robot2/install/setup.bash
-ros2 launch dsr_bringup2 dsr_bringup2_rviz.launch.py \
-  mode:=real host:=110.120.1.40 port:=12345 model:=e0509
+ros2 launch isaac_gripper_sim2real real_rviz_with_gripper.launch.py \
+  mode:=real \
+  host:=110.120.1.40 \
+  port:=12345 \
+  model:=e0509 \
+  robot_ip:=110.120.1.40
 ```
 
-(RViz 창은 닫아도 됨. controller만 살아 있으면 OK.)
-
-### T2 — 그리퍼만 RViz
-
-```bash
-source /opt/ros/humble/setup.bash
-source ~/doosan-robot2/install/setup.bash
-source ~/gripper_rviz_ws/install/setup.bash
-
-ros2 launch rviz_gripper_e0509 gripper_rviz_real.launch.py robot_ip:=110.120.1.40
-```
-
----
-
-## 데이터 흐름
+### Real → RViz 데이터 흐름
 
 ```
-실 RH-P12 (Modbus/TCP)
-  → gripper_service_node → /gripper/state (pulse)
-  → gripper_joint_state  → /joint_states (rh_r1,l1,r2,l2 rad)
-  → robot_state_publisher + RViz (그리퍼 URDF만)
+[팔] joint_state_broadcaster → /dsr01/joint_states (joint_1~6)
+[그리퍼] gripper_service_node → /gripper/state (pulse)
+              ↓ rviz_joint_state_merger (pulse→rad)
+         /dsr01/joint_states_rviz (joint_1~6 + rh_r1,l1,r2,l2)
+              ↓ robot_state_publisher (e0509_with_gripper.urdf)
+                    RViz
 ```
 
 ---
@@ -97,15 +91,16 @@ ros2 launch rviz_gripper_e0509 gripper_rviz_real.launch.py robot_ip:=110.120.1.4
 ## 확인
 
 ```bash
+ros2 topic echo /dsr01/joint_states
 ros2 topic echo /gripper/state
-ros2 topic echo /joint_states
+ros2 topic echo /dsr01/joint_states_rviz
 ```
-
-RViz Fixed Frame: **`world`**
 
 ---
 
 ## 그리퍼 수동 명령 (선택)
+
+RViz launch는 **상태만** 읽습니다. 움직이려면:
 
 ```bash
 ros2 service call /gripper/set_position \
@@ -113,13 +108,15 @@ ros2 service call /gripper/set_position \
   "{position: 420, current: 300, timeout_sec: 5.0}"
 ```
 
+Isaac sim2real 그리퍼 명령은 별도: `sim2real_gripper.launch.py` (sim2real_deploy 참고)
+
 ---
 
-## pulse ↔ angle
+## pulse ↔ rad (그리퍼)
 
-| pulse | 의미 | rh_r1 rad |
-|-------|------|-----------|
-| 0 | 열림 | 0.0 |
-| 700 | 닫힘 | ~1.101 |
+| pulse | rad (rh_r1) |
+|-------|-------------|
+| 0 | 0.0 (열림) |
+| 700 | ~1.101 (닫힘) |
 
-설정: `config/gripper_rviz_real.yaml`
+설정: `config/rviz_gripper.yaml`, `config/rviz_gripper_service.yaml`
